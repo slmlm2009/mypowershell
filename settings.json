@@ -1,0 +1,443 @@
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+    "actions": 
+    [
+        {
+            "command": 
+            {
+                "action": "copy",
+                "singleLine": false
+            },
+            "id": "User.copy.644BA8F2"
+        },
+        {
+            "command": "paste",
+            "id": "User.paste"
+        },
+        {
+            "command": "find",
+            "id": "User.find"
+        },
+        {
+            "command": 
+            {
+                "action": "splitPane",
+                "split": "auto",
+                "splitMode": "duplicate"
+            },
+            "id": "User.splitPane.A6751878"
+        }
+    ],
+    "centerOnLaunch": true,
+    "compatibility.allowHeadless": true,
+    "copyFormatting": "none",
+    "copyOnSelect": false,
+    "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+    "firstWindowPreference": "persistedWindowLayout",
+    "initialPosition": ",",
+    "keybindings": 
+    [
+        {
+            "id": "User.splitPane.A6751878",
+            "keys": "ctrl+shift+d"
+        },
+        {
+            "id": "User.copy.644BA8F2",
+            "keys": "ctrl+c"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+minus"
+        },
+        {
+            "id": "User.find",
+            "keys": "ctrl+shift+f"
+        },
+        {
+            "id": "User.paste",
+            "keys": "ctrl+v"
+        },
+        {
+            "id": "Terminal.DuplicatePaneRight",
+            "keys": "ctrl+shift+\\"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+plus"
+        },
+        {
+            "id": "Terminal.DuplicatePaneDown",
+            "keys": "ctrl+shift+minus"
+        },
+        {
+            "id": "Terminal.MoveFocusDown",
+            "keys": "ctrl+down"
+        },
+        {
+            "id": null,
+            "keys": "alt+down"
+        },
+        {
+            "id": "Terminal.MoveFocusLeft",
+            "keys": "ctrl+left"
+        },
+        {
+            "id": null,
+            "keys": "alt+left"
+        },
+        {
+            "id": "Terminal.MoveFocusRight",
+            "keys": "ctrl+right"
+        },
+        {
+            "id": null,
+            "keys": "alt+right"
+        },
+        {
+            "id": "Terminal.MoveFocusUp",
+            "keys": "ctrl+up"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+left"
+        },
+        {
+            "id": null,
+            "keys": "alt+up"
+        },
+        {
+            "id": "Terminal.ClosePane",
+            "keys": "ctrl+shift+backspace"
+        },
+        {
+            "id": "Terminal.ResizePaneRight",
+            "keys": "ctrl+shift+right"
+        },
+        {
+            "id": null,
+            "keys": "ctrl+shift+w"
+        },
+        {
+            "id": "Terminal.ResizePaneDown",
+            "keys": "ctrl+shift+down"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+down"
+        },
+        {
+            "id": "Terminal.ResizePaneLeft",
+            "keys": "ctrl+shift+left"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+right"
+        },
+        {
+            "id": "Terminal.ResizePaneUp",
+            "keys": "ctrl+shift+up"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+up"
+        }
+    ],
+    "newTabMenu": 
+    [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles": 
+    {
+        "defaults": {},
+        "list": 
+        [
+            {
+                "commandline": "%SystemRoot%\\System32\\cmd.exe",
+                "elevate": true,
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "hidden": false,
+                "name": "Command Prompt"
+            },
+            {
+                "colorScheme": "Campbell",
+                "elevate": true,
+                "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
+                "hidden": false,
+                "name": "PowerShell",
+                "source": "Windows.Terminal.PowershellCore"
+            },
+            {
+                "bellStyle": "taskbar",
+                "colorScheme": "Ubuntu-22.04-ColorScheme",
+                "elevate": true,
+                "font": 
+                {
+                    "face": "Cascadia Mono",
+                    "size": 12
+                },
+                "guid": "{4ff56d04-d9cf-57ea-bae2-ad396374e7e3}",
+                "hidden": false,
+                "name": "Ubuntu 22.04.5 LTS",
+                "source": "CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc"
+            },
+            {
+                "bellStyle": "taskbar",
+                "colorScheme": "Campbell",
+                "commandline": "ssh root@84.8.97.194",
+                "cursorShape": "filledBox",
+                "elevate": true,
+                "font": 
+                {
+                    "face": "Cascadia Mono",
+                    "size": 12
+                },
+                "guid": "{5730e9ea-ffc7-4419-b8df-ca4829da3e28}",
+                "hidden": false,
+                "icon": "D:\\Images\\Cloud_No_BG2.png",
+                "name": "slmlm2009-server",
+                "tabTitle": "slmlm2009-server"
+            },
+            {
+                "bellStyle": "taskbar",
+                "colorScheme": "Catppuccin Frappe",
+                "commandline": "ssh slmlm2009@orangepi",
+                "elevate": true,
+                "font": 
+                {
+                    "face": "MesloLGS Nerd Font"
+                },
+                "guid": "{d6d59871-deea-4350-af9a-3a443f8025a3}",
+                "hidden": false,
+                "icon": "D:\\Images\\orange-pi-seeklogo_cut.png",
+                "name": "Orange Pi"
+            },
+            {
+                "bellStyle": "taskbar",
+                "colorScheme": "Campbell",
+                "commandline": "ssh root@192.168.100.7",
+                "cursorShape": "filledBox",
+                "elevate": true,
+                "font": 
+                {
+                    "face": "Cascadia Mono",
+                    "size": 12
+                },
+                "guid": "{abff3789-da9c-4e49-8dde-fdd0c4600f78}",
+                "hidden": false,
+                "icon": "D:\\Images\\nanokvm_logo.jpg",
+                "name": "salem-sffpc-nanokvm",
+                "tabTitle": "nanokvm"
+            },
+            {
+                "bellStyle": "taskbar",
+                "colorScheme": "Campbell",
+                "commandline": "ssh root@100.67.147.113",
+                "cursorShape": "filledBox",
+                "elevate": true,
+                "font": 
+                {
+                    "face": "Cascadia Mono",
+                    "size": 12
+                },
+                "guid": "{27703750-03f8-421a-8f03-1772e183b165}",
+                "hidden": false,
+                "icon": "D:\\Images\\nanokvm_logo.jpg",
+                "name": "salem-pc-nanokvm",
+                "tabTitle": "nanokvm"
+            }
+        ]
+    },
+    "schemes": 
+    [
+        {
+            "background": "#303446",
+            "black": "#51576D",
+            "blue": "#8CAAEE",
+            "brightBlack": "#626880",
+            "brightBlue": "#8CAAEE",
+            "brightCyan": "#81C8BE",
+            "brightGreen": "#A6D189",
+            "brightPurple": "#F4B8E4",
+            "brightRed": "#E78284",
+            "brightWhite": "#A5ADCE",
+            "brightYellow": "#E5C890",
+            "cursorColor": "#F2D5CF",
+            "cyan": "#81C8BE",
+            "foreground": "#C6D0F5",
+            "green": "#A6D189",
+            "name": "Catppuccin Frappe",
+            "purple": "#F4B8E4",
+            "red": "#E78284",
+            "selectionBackground": "#626880",
+            "white": "#B5BFE2",
+            "yellow": "#E5C890"
+        },
+        {
+            "background": "#EFF1F5",
+            "black": "#5C5F77",
+            "blue": "#1E66F5",
+            "brightBlack": "#ACB0BE",
+            "brightBlue": "#1E66F5",
+            "brightCyan": "#179299",
+            "brightGreen": "#40A02B",
+            "brightPurple": "#EA76CB",
+            "brightRed": "#D20F39",
+            "brightWhite": "#BCC0CC",
+            "brightYellow": "#DF8E1D",
+            "cursorColor": "#DC8A78",
+            "cyan": "#179299",
+            "foreground": "#4C4F69",
+            "green": "#40A02B",
+            "name": "Catppuccin Latte",
+            "purple": "#EA76CB",
+            "red": "#D20F39",
+            "selectionBackground": "#ACB0BE",
+            "white": "#ACB0BE",
+            "yellow": "#DF8E1D"
+        },
+        {
+            "background": "#24273A",
+            "black": "#494D64",
+            "blue": "#8AADF4",
+            "brightBlack": "#5B6078",
+            "brightBlue": "#8AADF4",
+            "brightCyan": "#8BD5CA",
+            "brightGreen": "#A6DA95",
+            "brightPurple": "#F5BDE6",
+            "brightRed": "#ED8796",
+            "brightWhite": "#A5ADCB",
+            "brightYellow": "#EED49F",
+            "cursorColor": "#F4DBD6",
+            "cyan": "#8BD5CA",
+            "foreground": "#CAD3F5",
+            "green": "#A6DA95",
+            "name": "Catppuccin Macchiato",
+            "purple": "#F5BDE6",
+            "red": "#ED8796",
+            "selectionBackground": "#5B6078",
+            "white": "#B8C0E0",
+            "yellow": "#EED49F"
+        },
+        {
+            "background": "#1E1E2E",
+            "black": "#45475A",
+            "blue": "#89B4FA",
+            "brightBlack": "#585B70",
+            "brightBlue": "#89B4FA",
+            "brightCyan": "#94E2D5",
+            "brightGreen": "#A6E3A1",
+            "brightPurple": "#F5C2E7",
+            "brightRed": "#F38BA8",
+            "brightWhite": "#A6ADC8",
+            "brightYellow": "#F9E2AF",
+            "cursorColor": "#F5E0DC",
+            "cyan": "#94E2D5",
+            "foreground": "#CDD6F4",
+            "green": "#A6E3A1",
+            "name": "Catppuccin Mocha",
+            "purple": "#F5C2E7",
+            "red": "#F38BA8",
+            "selectionBackground": "#585B70",
+            "white": "#BAC2DE",
+            "yellow": "#F9E2AF"
+        }
+    ],
+    "themes": 
+    [
+        {
+            "name": "Catppuccin Frappe",
+            "tab": 
+            {
+                "background": "#303446FF",
+                "iconStyle": "default",
+                "showCloseButton": "always",
+                "unfocusedBackground": null
+            },
+            "tabRow": 
+            {
+                "background": "#292C3CFF",
+                "unfocusedBackground": "#232634FF"
+            },
+            "window": 
+            {
+                "applicationTheme": "dark",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        },
+        {
+            "name": "Catppuccin Latte",
+            "tab": 
+            {
+                "background": "#EFF1F5FF",
+                "iconStyle": "default",
+                "showCloseButton": "always",
+                "unfocusedBackground": null
+            },
+            "tabRow": 
+            {
+                "background": "#E6E9EFFF",
+                "unfocusedBackground": "#DCE0E8FF"
+            },
+            "window": 
+            {
+                "applicationTheme": "light",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        },
+        {
+            "name": "Catppuccin Macchiato",
+            "tab": 
+            {
+                "background": "#24273AFF",
+                "iconStyle": "default",
+                "showCloseButton": "always",
+                "unfocusedBackground": null
+            },
+            "tabRow": 
+            {
+                "background": "#1E2030FF",
+                "unfocusedBackground": "#181926FF"
+            },
+            "window": 
+            {
+                "applicationTheme": "dark",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        },
+        {
+            "name": "Catppuccin Mocha",
+            "tab": 
+            {
+                "background": "#1E1E2EFF",
+                "iconStyle": "default",
+                "showCloseButton": "always",
+                "unfocusedBackground": null
+            },
+            "tabRow": 
+            {
+                "background": "#181825FF",
+                "unfocusedBackground": "#11111BFF"
+            },
+            "window": 
+            {
+                "applicationTheme": "dark",
+                "experimental.rainbowFrame": false,
+                "frame": null,
+                "unfocusedFrame": null,
+                "useMica": false
+            }
+        }
+    ]
+}
