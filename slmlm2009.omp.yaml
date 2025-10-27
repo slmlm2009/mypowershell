@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json
+
+version: 3
+blocks:
+    - type: prompt
+      alignment: left
+      segments:
+        - template: "{{ .UserName }} on"
+          foreground: '#45F1C2'
+          type: session
+          style: plain
+        - properties:
+            folder_separator_icon: /
+            style: full
+          template: '  {{ .Path }} '
+          foreground: '#0CA0D8'
+          type: path
+          style: plain
+        - properties:
+            fetch_upstream_icon: true
+          template: '{{ .UpstreamIcon }} {{ .HEAD }}{{ if gt .StashCount 0 }}  {{ .StashCount }}{{ end }} '
+          foreground: '#14A5AE'
+          powerline_symbol: 
+          type: git
+          style: plain
+    - type: prompt
+      alignment: left
+      segments:
+        - template: '> '
+          foreground: '#CD4277'
+          type: text
+          style: plain
+      newline: true
+# {{ .UserName }} on
