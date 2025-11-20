@@ -106,7 +106,7 @@ function profile {
     notepad $PROFILE
 }
 
-function omp_pull {
+function omp {
     git -C "$env:USERPROFILE\.omp" pull
 }
 
