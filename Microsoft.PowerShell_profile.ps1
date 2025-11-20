@@ -102,5 +102,76 @@ function winutil {
     irm "https://christitus.com/win" | iex
 }
 
+function profile {
+    notepad $PROFILE
+}
+
+function omp_pull {
+    git -C "$env:USERPROFILE\.omp" pull
+}
+
+function omp_edit {
+    # DEFINE YOUR CONFIG PATH HERE
+    # (This should match the path in your 'oh-my-posh init' line)
+    $poshConfigPath = "$env:USERPROFILE\.omp\slmlm2009.omp.yaml" 
+    
+    if (Test-Path $poshConfigPath) {
+        notepad $poshConfigPath
+    } else {
+        Write-Error "Config file not found at: $poshConfigPath"
+        Write-Host "Please update the `$poshConfigPath variable in this function." -ForegroundColor Yellow
+    }
+}
+
+function omp_push {
+    param (
+        [string]$RepoPath = "$env:USERPROFILE\.omp", # ADJUST THIS PATH
+        [string]$Message = "Update config"
+    )
+
+    # Save current location to return later
+    $originalLocation = Get-Location
+
+    try {
+        # Navigate to the repo
+        if (Test-Path $RepoPath) {
+            Set-Location $RepoPath
+        } else {
+            Write-Error "Repository path not found: $RepoPath"
+            return
+        }
+
+        # Check for changes
+        if (-not (git status --porcelain)) {
+            Write-Warning "No changes to commit."
+            return
+        }
+
+        # Create timestamp
+        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $fullMessage = "$Message - $timestamp"
+
+        # Git operations
+        Write-Host "Staging changes..." -ForegroundColor Cyan
+        git add .
+
+        Write-Host "Committing: '$fullMessage'" -ForegroundColor Cyan
+        git commit -m "$fullMessage"
+
+        Write-Host "Pushing to remote..." -ForegroundColor Cyan
+        git push
+
+        Write-Host "Done!" -ForegroundColor Green
+    }
+    catch {
+        Write-Error "An error occurred: $_"
+    }
+    finally {
+        # Always return to where you started
+        Set-Location $originalLocation
+    }
+}
+
+
 oh-my-posh init pwsh --config "C:\Users\slmlm2009\.omp\slmlm2009.omp.yaml" | Invoke-Expression
 #oh-my-posh init pwsh --config "https://raw.githubusercontent.com/slmlm2009/mypowershell/refs/heads/main/slmlm2009.omp.yaml" | Invoke-Expression
