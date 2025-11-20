@@ -97,4 +97,5 @@ function touch_dummy {
         Write-Error "File not found: $ListFilePath"
     }
 }
-oh-my-posh init pwsh --config "https://raw.githubusercontent.com/slmlm2009/mypowershell/refs/heads/main/slmlm2009.omp.yaml" | Invoke-Expression
+oh-my-posh init pwsh --config "C:\Users\slmlm2009\.omp\slmlm2009.omp.yaml" | Invoke-Expression
+#oh-my-posh init pwsh --config "https://raw.githubusercontent.com/slmlm2009/mypowershell/refs/heads/main/slmlm2009.omp.yaml" | Invoke-Expression
