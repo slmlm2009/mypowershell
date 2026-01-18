@@ -190,7 +190,7 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
 if (Get-Module -ListAvailable PSFzf) {
     Import-Module PSFzf
 
-    # 1. Setup Key Bindings (Ctrl+T for file, Ctrl+R for history)
+    # 1. Setup Key Bindings (Ctrl+T for files and folders, Ctrl+R for history)
     Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
     
     # 2. Configure Default Command (Use 'fd' if available)
