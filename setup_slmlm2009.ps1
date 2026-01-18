@@ -127,4 +127,30 @@ if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
 Write-Host "`n[4/4] Configuration Symlinks" -ForegroundColor Blue
 
 # A. Windows Terminal
-$wtPath = "$env:LOCAL
+# We construct the path safely to avoid line-wrapping issues in copy-paste
+$wtBase = $env:LOCALAPPDATA
+$wtPath = "$wtBase\Packages\Microsoft.WindowsTerminal_*\LocalState"
+
+$wtResolvedPath = Get-ChildItem -Path $wtPath -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($wtResolvedPath) {
+    Set-Symlink -SourceFile "$RepoPath\settings.json" -TargetFile "$($wtResolvedPath.FullName)\settings.json"
+}
+
+# B. PowerShell Profile
+$profileDir = Split-Path -Path $PROFILE
+if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
+Set-Symlink -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE
+
+# C. Oh My Posh Config
+if (!(Test-Path $OmpTargetDir)) { New-Item -ItemType Directory -Path $OmpTargetDir -Force | Out-Null }
+Set-Symlink -SourceFile "$RepoPath\$OmpConfigName" -TargetFile "$OmpTargetDir\$OmpConfigName"
+
+# ---------------------------------------------------------
+# FINAL STEPS
+# ---------------------------------------------------------
+Write-Host "`n------------------------------------------------------------"
+Write-Host "SETUP COMPLETE!" -ForegroundColor Cyan
+Write-Host "------------------------------------------------------------"
+Write-Host "NOTE: PowerShell Modules were skipped to avoid errors." -ForegroundColor Yellow
+Write-Host "Please run this command manually in your new terminal:" -ForegroundColor Yellow
+Write-Host "`n    Install-Module PSFzf, Terminal-Icons -Scope CurrentUser -Force`n" -ForegroundColor White -BackgroundColor Black
