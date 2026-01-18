@@ -23,22 +23,20 @@ $OmpConfigName = "slmlm2009.omp.yaml"
 $OmpTargetDir  = "$HOME\.omp"
 
 # ============================================================
-# HELPER: Hierarchical Directory Creation (SSH-safe)
+# HELPER: Hierarchical Directory Creation
 # ============================================================
 function New-DirectoryHierarchical {
     param([string]$Path)
 
     $absPath = [System.IO.Path]::GetFullPath($Path)
-
-    # If it already exists, we're done
     if (Test-Path $absPath) { return $absPath }
 
-    # Method 1: CMD-based creation (bypasses PowerShell provider completely)
+    # Method 1: CMD mkdir (bypasses PowerShell provider)
     cmd /c "mkdir `"$absPath`"" 2>$null
     Start-Sleep -Milliseconds 500
     if (Test-Path $absPath) { return $absPath }
 
-    # Method 2: PowerShell New-Item with -Force
+    # Method 2: PowerShell New-Item
     try {
         New-Item -ItemType Directory -Path $absPath -Force -ErrorAction Stop | Out-Null
         Start-Sleep -Milliseconds 500
@@ -46,7 +44,7 @@ function New-DirectoryHierarchical {
     }
     catch { }
 
-    # Method 3: Parent-by-parent creation
+    # Method 3: Parent-by-parent
     $parts = $absPath.Split('\\') | Where-Object { $_ }
     $currentPath = ""
 
@@ -165,7 +163,7 @@ function Set-SymlinkSafe {
 
         if (!(Remove-ItemNuclear -Path $absTarget)) {
             Write-Host "  [X] $DisplayName : Failed to remove existing" -ForegroundColor Red
-            return
+            return $false
         }
     }
 
@@ -174,8 +172,9 @@ function Set-SymlinkSafe {
         $created = New-DirectoryHierarchical -Path $parentDir
         if (!$created) {
             Write-Host "  [X] $DisplayName : Cannot create parent directory" -ForegroundColor Red
-            return
+            return $false
         }
+        Grant-FileOwnership -Path $created | Out-Null
     }
 
     try {
@@ -184,12 +183,15 @@ function Set-SymlinkSafe {
 
         if (Test-Path $TargetFile) {
             Write-Host "  [+] $DisplayName : Symlink created" -ForegroundColor Green
+            return $true
         } else {
             Write-Host "  [X] $DisplayName : Creation failed" -ForegroundColor Red
+            return $false
         }
     }
     catch {
         Write-Host "  [X] $DisplayName : $($_.Exception.Message)" -ForegroundColor Red
+        return $false
     }
 }
 
@@ -232,28 +234,40 @@ if ($buckets -notmatch "extras") {
     scoop bucket add extras *>$null
 }
 
-$tools = @("zoxide", "fzf", "bat", "ripgrep", "fd", "eza")
-foreach ($tool in $tools) {
-    if (!(Get-Command $tool -ErrorAction SilentlyContinue)) {
-        Write-Host "  [..] Installing $tool..." -ForegroundColor Yellow
+# Map tool names to their actual executable names
+$toolMap = @{
+    "zoxide"   = "zoxide"
+    "fzf"      = "fzf"
+    "bat"      = "bat"
+    "ripgrep"  = "rg"      # ripgrep binary is 'rg'
+    "fd"       = "fd"
+    "eza"      = "eza"
+}
+
+foreach ($toolPackage in $toolMap.Keys) {
+    $toolExe = $toolMap[$toolPackage]
+
+    if (!(Get-Command $toolExe -ErrorAction SilentlyContinue)) {
+        Write-Host "  [..] Installing $toolPackage..." -ForegroundColor Yellow
 
         $installed = $false
         for ($i = 1; $i -le 2; $i++) {
-            scoop install $tool *>$null 2>&1
-            if (Get-Command $tool -ErrorAction SilentlyContinue) {
+            scoop install $toolPackage *>$null 2>&1
+            Start-Sleep -Milliseconds 500
+
+            if (Get-Command $toolExe -ErrorAction SilentlyContinue) {
                 $installed = $true
                 break
             }
-            Start-Sleep -Seconds 1
         }
 
         if ($installed) {
-            Write-Host "  [+] $tool" -ForegroundColor Green
+            Write-Host "  [+] $toolPackage" -ForegroundColor Green
         } else {
-            Write-Host "  [X] $tool (check 'scoop list' manually)" -ForegroundColor Red
+            Write-Host "  [X] $toolPackage (verify with 'scoop list')" -ForegroundColor Red
         }
     } else {
-        Write-Host "  [OK] $tool" -ForegroundColor Gray
+        Write-Host "  [OK] $toolPackage" -ForegroundColor Gray
     }
 }
 
@@ -282,7 +296,7 @@ if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
 # ============================================================
 Write-Host "`n[4/6] PowerShell Modules (PSGallery)" -ForegroundColor Blue
 
-# === Define fallback paths (in order of preference) ===
+# === Define fallback paths ===
 $modulePaths = @(
     "$HOME\Documents\PowerShell\Modules",
     "$HOME\Documents\WindowsPowerShell\Modules",
@@ -292,22 +306,18 @@ $modulePaths = @(
 
 $userModPath = $null
 
-# Try to create each path until one succeeds
 foreach ($testPath in $modulePaths) {
-    Write-Host "  [..] Trying module path: $testPath" -ForegroundColor Yellow
-
     $result = New-DirectoryHierarchical -Path $testPath
 
     if ($result -and (Test-Path $result)) {
         $userModPath = $result
-        Write-Host "  [+] Module path created: $userModPath" -ForegroundColor Green
+        Write-Host "  [+] Module path: $userModPath" -ForegroundColor Green
         break
     }
 }
 
-# Last resort: Use TEMP location
 if (!$userModPath) {
-    Write-Host "  [!] Using fallback TEMP module path" -ForegroundColor Yellow
+    Write-Host "  [!] Using TEMP module path" -ForegroundColor Yellow
     $userModPath = "$env:TEMP\PSModules"
     $result = New-DirectoryHierarchical -Path $userModPath
     if (!$result) {
@@ -320,12 +330,9 @@ if (!$userModPath) {
 
 Grant-FileOwnership -Path $userModPath | Out-Null
 
-# Inject into PSModulePath
 if ($env:PSModulePath -notlike "*$userModPath*") {
     $env:PSModulePath = "$userModPath;$env:PSModulePath"
 }
-
-Write-Host "  [OK] Active module path: $userModPath" -ForegroundColor Gray
 
 # === Ensure NuGet and PSGallery ===
 $nuget = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
@@ -338,7 +345,7 @@ if ($psRepo.InstallationPolicy -ne 'Trusted') {
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -WarningAction SilentlyContinue
 }
 
-# === Install modules via TEMP staging ===
+# === Install modules with verification ===
 $modules = @("PSFzf", "Terminal-Icons")
 
 foreach ($module in $modules) {
@@ -386,8 +393,15 @@ foreach ($module in $modules) {
 
             Start-Sleep -Milliseconds 500
 
+            # Verify module is actually loadable
             if (Get-Module -ListAvailable -Name $module) {
-                Write-Host "  [+] $module (staged)" -ForegroundColor Green
+                try {
+                    Import-Module $module -ErrorAction Stop -WarningAction SilentlyContinue
+                    Write-Host "  [+] $module (verified)" -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "  [+] $module (installed, import may need restart)" -ForegroundColor Yellow
+                }
             } else {
                 Write-Host "  [X] $module : Not detected after staging" -ForegroundColor Red
             }
@@ -415,18 +429,46 @@ if ($wtResolved) {
     Write-Host "  [X] Windows Terminal not found" -ForegroundColor Red
 }
 
-# --- PowerShell Profile ---
+# --- PowerShell Profile (with fallback location) ---
 $profileDir = Split-Path -Path $PROFILE
-
 $profileDirCreated = New-DirectoryHierarchical -Path $profileDir
+
 if (!$profileDirCreated) {
-    Write-Host "  [X] Cannot create profile directory" -ForegroundColor Red
+    Write-Host "  [!] Documents tree locked, using AppData profile location" -ForegroundColor Yellow
+
+    # Fallback: Use same directory as modules if Documents is inaccessible
+    $fallbackProfile = Join-Path $userModPath "Microsoft.PowerShell_profile.ps1"
+
+    # Add to PSModulePath search so profile is still found
+    if ($env:PSModulePath -notlike "*$userModPath*") {
+        $env:PSModulePath = "$userModPath;$env:PSModulePath"
+    }
+
+    $success = Set-SymlinkSafe -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $fallbackProfile -DisplayName "PS Profile (Fallback)"
+
+    if ($success) {
+        Write-Host "  [!] NOTE: Profile at non-standard location: $fallbackProfile" -ForegroundColor Yellow
+        Write-Host "  [!] Add to `$PROFILE via: . `"$fallbackProfile`"" -ForegroundColor Yellow
+    }
 } else {
     if (Test-Path $PROFILE) {
         Grant-FileOwnership -Path $PROFILE | Out-Null
     }
 
-    Set-SymlinkSafe -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE -DisplayName "PS Profile"
+    $success = Set-SymlinkSafe -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE -DisplayName "PS Profile"
+
+    # If standard location still fails, try fallback
+    if (!$success) {
+        Write-Host "  [!] Trying fallback profile location..." -ForegroundColor Yellow
+        $fallbackProfile = Join-Path $userModPath "Microsoft.PowerShell_profile.ps1"
+
+        $fbSuccess = Set-SymlinkSafe -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $fallbackProfile -DisplayName "PS Profile (Fallback)"
+
+        if ($fbSuccess) {
+            Write-Host "  [!] Profile at: $fallbackProfile" -ForegroundColor Yellow
+            Write-Host "  [!] To use, add to your `$PROFILE: . `"$fallbackProfile`"" -ForegroundColor Yellow
+        }
+    }
 }
 
 # --- Oh My Posh Config ---
