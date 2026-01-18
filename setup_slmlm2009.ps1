@@ -1,8 +1,7 @@
 <#
 .SYNOPSIS
     Setup script for slmlm2009 environment.
-    Enforces Scoop-managed Git, installs CLI tools, and symlinks configuration files.
-    Skips symlinking if the file is already linked to the repo.
+    Fixed to prevent self-referencing symlinks if repo is cloned into target dirs.
 #>
 
 # 0. Admin Check
@@ -11,6 +10,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Break
 }
 
+# Get absolute path of the repo root
 $RepoPath = $PSScriptRoot
 Write-Host "Running setup from: $RepoPath" -ForegroundColor Cyan
 
@@ -21,8 +21,8 @@ $OmpTargetDir  = "$HOME\.omp"
 # Helper Function to check and create Symlinks
 function Set-Symlink {
     param (
-        [string]$SourceFile, # The file in the Repo
-        [string]$TargetFile  # The location on the system
+        [string]$SourceFile, 
+        [string]$TargetFile  
     )
 
     if (!(Test-Path $SourceFile)) {
@@ -30,11 +30,23 @@ function Set-Symlink {
         return
     }
 
+    # --- THE FIX: Path Equality Check ---
+    # Resolve paths to absolute strings to ensure comparison is accurate
+    $absSource = (Resolve-Path $SourceFile).Path
+    # For target, we manually construct the expected absolute path to check equality before creation
+    $absTarget = [System.IO.Path]::GetFullPath($TargetFile)
+
+    if ($absSource -ieq $absTarget) {
+        Write-Host "Source and Target are the same location ($absTarget). No symlink needed." -ForegroundColor Magenta
+        return
+    }
+
     # Check if target already exists
     if (Test-Path $TargetFile) {
         $item = Get-Item $TargetFile
+        
         # Check if it's already a link to our repo
-        if ($item.LinkType -eq "SymbolicLink" -and $item.Target -eq $SourceFile) {
+        if ($item.LinkType -eq "SymbolicLink" -and $item.Target -eq $absSource) {
             Write-Host "Link already exists and is correct: $TargetFile" -ForegroundColor Gray
             return
         }
@@ -51,8 +63,8 @@ function Set-Symlink {
     }
 
     # Create the symlink
-    Write-Host "Creating symlink: $TargetFile -> $SourceFile" -ForegroundColor Yellow
-    New-Item -ItemType SymbolicLink -Path $TargetFile -Target $SourceFile -Force | Out-Null
+    Write-Host "Creating symlink: $TargetFile -> $absSource" -ForegroundColor Yellow
+    New-Item -ItemType SymbolicLink -Path $TargetFile -Target $absSource -Force | Out-Null
 }
 
 # ---------------------------------------------------------
