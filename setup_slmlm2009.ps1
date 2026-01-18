@@ -9,7 +9,7 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Break
 }
 
-# Force TLS 1.2 for PSGallery (Crucial for SSH sessions)
+# Force TLS 1.2 for PSGallery
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoPath = $PSScriptRoot
@@ -19,7 +19,7 @@ Write-Host "------------------------------------------------------------"
 $OmpConfigName = "slmlm2009.omp.yaml"
 $OmpTargetDir  = "$HOME\.omp"
 
-# Helper Function for Symlinks (Aggressive deletion for SSH)
+# Helper Function for Symlinks
 function Set-Symlink {
     param ([string]$SourceFile, [string]$TargetFile, [string]$DisplayName)
     if (!(Test-Path $SourceFile)) { return }
@@ -39,8 +39,7 @@ function Set-Symlink {
             return
         }
         
-        # Access Denied Fix: Use CMD to force delete existing files/links
-        Write-Host "  [..] Removing existing $DisplayName..." -ForegroundColor Gray
+        # Access Denied Fix: Use CMD to force delete
         if ($item.Attributes -match "Directory") {
             cmd /c "rd /s /q `"$absTarget`"" 2>$null
         } else {
@@ -48,7 +47,6 @@ function Set-Symlink {
         }
     }
 
-    # Final attempt to create link
     New-Item -ItemType SymbolicLink -Path $TargetFile -Target $absSource -Force *>$null
     if (Test-Path $TargetFile) {
         Write-Host "  [+] $DisplayName : Symlink created" -ForegroundColor Green
@@ -66,9 +64,7 @@ if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
 }
 Write-Host "  [OK] Scoop ready" -ForegroundColor Gray
 
-# Strict Scoop check
-$scoopApps = scoop list
-if ($scoopApps -notmatch "git") {
+if (!((scoop list | Out-String) -match "git")) {
     Write-Host "  [..] Installing Scoop Git..."
     scoop install git *>$null
 }
@@ -105,13 +101,18 @@ if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
 }
 
 # ---------------------------------------------------------
-# 4. PowerShell Modules (Nuclear Fix)
+# 4. PowerShell Modules (Dynamic Path Fix)
 # ---------------------------------------------------------
 Write-Host "`n[4/6] PowerShell Modules (PSGallery)" -ForegroundColor Blue
 
-# Ensure Module Path exists
-$modPath = "$HOME\Documents\PowerShell\Modules"
-if (!(Test-Path $modPath)) { New-Item -ItemType Directory -Path $modPath -Force *>$null }
+# Discovery: Find the user-specific module path from the system
+$userModPath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "*$HOME*" } | Select-Object -First 1)
+if (!$userModPath) { $userModPath = "$HOME\Documents\PowerShell\Modules" }
+
+if (!(Test-Path $userModPath)) { 
+    New-Item -ItemType Directory -Path $userModPath -Force *>$null 
+    Start-Sleep -Seconds 1 # Give the OS time to register the folder
+}
 
 # Provider and Trust
 if (!(Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
@@ -123,15 +124,20 @@ $modules = @("PSFzf", "Terminal-Icons")
 foreach ($module in $modules) {
     if (!(Get-Module -ListAvailable -Name $module)) {
         Write-Host "  [..] Installing $module..." -ForegroundColor White
-        # -Scope CurrentUser is sometimes blocked in SSH; we use -Force and -AllowClobber
         try {
+            # Try standard install first
             Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber -Confirm:$false -ErrorAction Stop
             Write-Host "  [+] $module installed" -ForegroundColor Green
         } catch {
-            Write-Host "  [X] Failed to install $module. Attempting workaround..." -ForegroundColor Yellow
-            # Alternative for stubborn SSH sessions
-            Save-Module -Name $module -Path $modPath -Force *>$null
-            Write-Host "  [+] $module saved to user modules" -ForegroundColor Green
+            Write-Host "  [..] Manual Save Attempt for $module..." -ForegroundColor Yellow
+            # Manual Save using the discovered path
+            Save-Module -Name $module -Path $userModPath -Force -ErrorAction SilentlyContinue
+            
+            if (Get-Module -ListAvailable -Name $module) {
+                Write-Host "  [+] $module saved successfully" -ForegroundColor Green
+            } else {
+                Write-Host "  [X] Failed to install $module" -ForegroundColor Red
+            }
         }
     } else {
         Write-Host "  [OK] $module is already installed" -ForegroundColor Gray
@@ -143,14 +149,12 @@ foreach ($module in $modules) {
 # ---------------------------------------------------------
 Write-Host "`n[5/6] Configuration Symlinks" -ForegroundColor Blue
 
-# Windows Terminal (Only if local appdata exists)
 $wtPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_*\LocalState"
 $wtResolvedPath = Get-ChildItem -Path $wtPath -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($wtResolvedPath) {
     Set-Symlink -SourceFile "$RepoPath\settings.json" -TargetFile "$($wtResolvedPath.FullName)\settings.json" -DisplayName "Terminal Settings"
 }
 
-# Profile and OMP
 $profileDir = Split-Path -Path $PROFILE
 if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force *>$null }
 Set-Symlink -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE -DisplayName "PS Profile"
