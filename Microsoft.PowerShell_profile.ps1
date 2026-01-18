@@ -186,6 +186,10 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
     Invoke-Expression (& {zoxide init powershell --cmd cd | Out-String})
 }
 
+# Import modules
+Import-Module PSFzf
+Import-Module Terminal-Icons
+
 # Initialize PSFzf (Fuzzy Finder Integration)
 if (Get-Module -ListAvailable PSFzf) {
     Import-Module PSFzf
@@ -294,4 +298,5 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 # =============================================================================
 # ENV VARS & EXTRAS
 # =============================================================================
+
 $env:EDITOR = "edit" # Or 'notepad' if you use GUI
