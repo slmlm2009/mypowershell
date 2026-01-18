@@ -14,9 +14,10 @@
 # ------------------------------------------------------------
 # 0. Session & Security Prep
 # ------------------------------------------------------------
-$IsAdmin = ([Security.Principal.WindowsPrincipal]
+$IsAdmin = ([Security.Principal.WindowsPrincipal] `
     [Security.Principal.WindowsIdentity]::GetCurrent()
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 
 if (-not $IsAdmin) {
     Write-Host "[X] Administrator privileges required" -ForegroundColor Red
