@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
-    Setup for slmlm2009 Windows Terminal environment
+    Hardened setup for slmlm2009 Windows Terminal environment (SSH-safe v2).
+.NOTES
+    Fixes for SSH filtered token: module path visibility, profile ownership, error recovery.
 #>
 
 #Requires -RunAsAdministrator
@@ -13,7 +15,6 @@ if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]:
     Exit 1
 }
 
-# Force TLS 1.2 globally for all web operations
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoPath = $PSScriptRoot
@@ -24,39 +25,64 @@ $OmpConfigName = "slmlm2009.omp.yaml"
 $OmpTargetDir  = "$HOME\.omp"
 
 # ============================================================
+# HELPER: Force File Ownership (SSH-safe)
+# ============================================================
+function Grant-FileOwnership {
+    param([string]$Path)
+
+    if (!(Test-Path $Path)) { return $true }
+
+    try {
+        # Take ownership as Administrators group
+        takeown /f "$Path" /a 2>$null | Out-Null
+
+        # Grant full control to current user and Administrators
+        icacls "$Path" /grant "${env:USERNAME}:F" /grant "Administrators:F" /t /c /q 2>$null | Out-Null
+
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+# ============================================================
 # HELPER: Nuclear File/Symlink Deletion
 # ============================================================
 function Remove-ItemNuclear {
     param([string]$Path)
-    
+
     if (!(Test-Path $Path)) { return $true }
-    
+
     try {
+        # Force ownership first
+        Grant-FileOwnership -Path $Path | Out-Null
+
         $item = Get-Item -Path $Path -Force -ErrorAction Stop
         $absPath = $item.FullName
-        
-        # Try native .NET delete first (works for most symlinks)
+
+        # Try native .NET delete for symlinks/reparse points
         if ($item.Attributes -match "ReparsePoint" -or $item.LinkType) {
             $item.Delete()
-            Start-Sleep -Milliseconds 100
+            Start-Sleep -Milliseconds 200
             if (!(Test-Path $absPath)) { return $true }
         }
-        
-        # Fallback: Nuclear CMD approach (bypasses PowerShell provider locks)
+
+        # Nuclear CMD approach
         if ($item.PSIsContainer) {
             cmd /c "rd /s /q `"$absPath`"" 2>$null
         } else {
             cmd /c "del /f /q /a `"$absPath`"" 2>$null
         }
-        
-        Start-Sleep -Milliseconds 100
+
+        Start-Sleep -Milliseconds 200
         return (!(Test-Path $absPath))
     }
     catch {
-        # Last resort: Force with attrib reset
+        # Last resort with attribute reset
         cmd /c "attrib -r -s -h `"$Path`"" 2>$null
         cmd /c "del /f /q /a `"$Path`"" 2>$null
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 200
         return (!(Test-Path $Path))
     }
 }
@@ -70,23 +96,22 @@ function Set-SymlinkSafe {
         [string]$TargetFile,
         [string]$DisplayName
     )
-    
+
     if (!(Test-Path $SourceFile)) {
         Write-Host "  [X] $DisplayName : Source not found" -ForegroundColor Red
         return
     }
 
-    # Resolve absolute paths for comparison
     $absSource = (Resolve-Path $SourceFile).Path
     $absTarget = [System.IO.Path]::GetFullPath($TargetFile)
 
-    # CRITICAL: Prevent recursive symlink (source == target)
+    # Prevent recursive symlink
     if ($absSource -eq $absTarget) {
         Write-Host "  [OK] $DisplayName : Already in place" -ForegroundColor Gray
         return
     }
 
-    # Check if correct symlink already exists
+    # Check if correct symlink exists
     if (Test-Path $TargetFile) {
         $item = Get-Item $TargetFile -Force
         if ($item.LinkType -eq "SymbolicLink") {
@@ -96,19 +121,26 @@ function Set-SymlinkSafe {
                 return
             }
         }
-        
-        # Remove existing (wrong symlink or regular file)
+
+        # Remove existing
         if (!(Remove-ItemNuclear -Path $absTarget)) {
             Write-Host "  [X] $DisplayName : Failed to remove existing" -ForegroundColor Red
             return
         }
     }
 
+    # Ensure parent directory exists with proper permissions
+    $parentDir = Split-Path -Path $TargetFile -Parent
+    if (!(Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+        Grant-FileOwnership -Path $parentDir | Out-Null
+    }
+
     # Create symlink
     try {
         New-Item -ItemType SymbolicLink -Path $TargetFile -Target $absSource -Force -ErrorAction Stop | Out-Null
-        Start-Sleep -Milliseconds 100
-        
+        Start-Sleep -Milliseconds 200
+
         if (Test-Path $TargetFile) {
             Write-Host "  [+] $DisplayName : Symlink created" -ForegroundColor Green
         } else {
@@ -116,7 +148,7 @@ function Set-SymlinkSafe {
         }
     }
     catch {
-        Write-Host "  [X] $DisplayName : $_" -ForegroundColor Red
+        Write-Host "  [X] $DisplayName : $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -163,11 +195,22 @@ $tools = @("zoxide", "fzf", "bat", "ripgrep", "fd", "eza")
 foreach ($tool in $tools) {
     if (!(Get-Command $tool -ErrorAction SilentlyContinue)) {
         Write-Host "  [..] Installing $tool..." -ForegroundColor Yellow
-        scoop install $tool *>$null
-        if (Get-Command $tool -ErrorAction SilentlyContinue) {
+
+        # Try install with retry for transient failures
+        $installed = $false
+        for ($i = 1; $i -le 2; $i++) {
+            scoop install $tool *>$null 2>&1
+            if (Get-Command $tool -ErrorAction SilentlyContinue) {
+                $installed = $true
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+
+        if ($installed) {
             Write-Host "  [+] $tool" -ForegroundColor Green
         } else {
-            Write-Host "  [X] $tool failed" -ForegroundColor Red
+            Write-Host "  [X] $tool (check 'scoop list' manually)" -ForegroundColor Red
         }
     } else {
         Write-Host "  [OK] $tool" -ForegroundColor Gray
@@ -182,29 +225,30 @@ Write-Host "`n[3/6] Prompt: Oh My Posh" -ForegroundColor Blue
 if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
     Write-Host "  [..] Installing Oh My Posh..." -ForegroundColor Yellow
     winget install JanDeDobbeleer.OhMyPosh --source winget --accept-package-agreements --accept-source-agreements --silent *>$null 2>&1
-    
-    # Refresh PATH to detect newly installed binaries
+
+    # Refresh PATH
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-    
+
     if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
         Write-Host "  [+] Oh My Posh" -ForegroundColor Green
     } else {
-        Write-Host "  [X] Oh My Posh failed (may need terminal restart)" -ForegroundColor Red
+        Write-Host "  [X] Oh My Posh (may need terminal restart)" -ForegroundColor Red
     }
 } else {
     Write-Host "  [OK] Oh My Posh" -ForegroundColor Gray
 }
 
 # ============================================================
-# 4. POWERSHELL MODULES (SSH-SAFE)
+# 4. POWERSHELL MODULES (SSH-SAFE WITH ABSOLUTE PATHS)
 # ============================================================
 Write-Host "`n[4/6] PowerShell Modules (PSGallery)" -ForegroundColor Blue
 
-# === STEP 1: Identify and validate user module path ===
-$userModPath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "*$HOME*" -and $_ -notlike "*Program Files*" } | Select-Object -First 1)
+# === Discover user module path ===
+$userModPath = ($env:PSModulePath -split ';' | Where-Object { 
+    $_ -like "*$HOME*" -and $_ -notlike "*Program Files*" 
+} | Select-Object -First 1)
 
 if ([string]::IsNullOrWhiteSpace($userModPath)) {
-    # Fallback to PowerShell 7+ default or legacy path
     if ($PSVersionTable.PSVersion.Major -ge 7) {
         $userModPath = "$HOME\Documents\PowerShell\Modules"
     } else {
@@ -212,21 +256,35 @@ if ([string]::IsNullOrWhiteSpace($userModPath)) {
     }
 }
 
-# Create if missing
+# Create with explicit filesystem flush
 if (!(Test-Path $userModPath)) {
     Write-Host "  [..] Creating module path: $userModPath" -ForegroundColor Yellow
     New-Item -ItemType Directory -Path $userModPath -Force | Out-Null
-    Start-Sleep -Seconds 2  # Critical: Let filesystem propagate
+
+    # CRITICAL: Force filesystem sync in SSH session
+    [System.IO.Directory]::CreateDirectory($userModPath) | Out-Null
+    Start-Sleep -Seconds 3
+
+    # Verify creation
+    if (!(Test-Path $userModPath)) {
+        Write-Host "  [X] Failed to create module directory" -ForegroundColor Red
+        Write-Host "------------------------------------------------------------"
+        Write-Host "[6/6] Setup Incomplete (Module Path Error)" -ForegroundColor Red
+        Exit 1
+    }
 }
 
-# Ensure it's in PSModulePath for this session
+# Grant full permissions to module path
+Grant-FileOwnership -Path $userModPath | Out-Null
+
+# Inject into session PSModulePath
 if ($env:PSModulePath -notlike "*$userModPath*") {
     $env:PSModulePath = "$userModPath;$env:PSModulePath"
 }
 
 Write-Host "  [OK] Module path: $userModPath" -ForegroundColor Gray
 
-# === STEP 2: Ensure NuGet and PSGallery trust ===
+# === Ensure NuGet and PSGallery ===
 $nuget = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
 if (!$nuget -or ($nuget.Version -lt [Version]"2.8.5.201")) {
     Write-Host "  [..] Installing NuGet provider..." -ForegroundColor Yellow
@@ -238,7 +296,7 @@ if ($psRepo.InstallationPolicy -ne 'Trusted') {
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -WarningAction SilentlyContinue
 }
 
-# === STEP 3: Install modules with SSH-safe fallback ===
+# === Install modules with absolute path resolution ===
 $modules = @("PSFzf", "Terminal-Icons")
 
 foreach ($module in $modules) {
@@ -246,40 +304,58 @@ foreach ($module in $modules) {
         Write-Host "  [OK] $module" -ForegroundColor Gray
         continue
     }
-    
+
     Write-Host "  [..] Installing $module..." -ForegroundColor Yellow
-    
-    # === PRIMARY: Try standard Install-Module ===
+
+    # PRIMARY: Try Install-Module
     try {
         Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber -SkipPublisherCheck -Confirm:$false -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-        
+
         if (Get-Module -ListAvailable -Name $module) {
             Write-Host "  [+] $module" -ForegroundColor Green
             continue
         }
     }
-    catch {
-        # Expected in filtered token SSH sessions
-    }
-    
-    # === FALLBACK: Manual Save-Module (bypass temp folder issues) ===
+    catch { }
+
+    # FALLBACK: Manual download with absolute path
     try {
-        Write-Host "  [..] Trying manual save for $module..." -ForegroundColor Yellow
-        
-        # Double-check path exists (race condition mitigation)
-        if (!(Test-Path $userModPath)) {
-            New-Item -ItemType Directory -Path $userModPath -Force | Out-Null
-            Start-Sleep -Seconds 2
+        Write-Host "  [..] Manual save for $module..." -ForegroundColor Yellow
+
+        # Resolve to absolute path and verify it exists
+        $absoluteModPath = (Resolve-Path $userModPath -ErrorAction Stop).Path
+
+        if (!(Test-Path $absoluteModPath)) {
+            Write-Host "  [X] $module : Module path vanished" -ForegroundColor Red
+            continue
         }
-        
-        # Save directly to user modules path
-        Save-Module -Name $module -Path $userModPath -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-        Start-Sleep -Milliseconds 500  # Let module registration complete
-        
-        if (Get-Module -ListAvailable -Name $module) {
-            Write-Host "  [+] $module (manual)" -ForegroundColor Green
+
+        # Download to TEMP first, then move (avoids Save-Module path issues)
+        $tempSavePath = "$env:TEMP\PSModules_$(Get-Random)"
+        New-Item -ItemType Directory -Path $tempSavePath -Force | Out-Null
+
+        Save-Module -Name $module -Path $tempSavePath -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+
+        # Move module folder to final destination
+        $moduleFolderTemp = Join-Path $tempSavePath $module
+        $moduleFolderFinal = Join-Path $absoluteModPath $module
+
+        if (Test-Path $moduleFolderTemp) {
+            if (Test-Path $moduleFolderFinal) {
+                Remove-Item -Path $moduleFolderFinal -Recurse -Force
+            }
+            Move-Item -Path $moduleFolderTemp -Destination $absoluteModPath -Force
+            Remove-Item -Path $tempSavePath -Recurse -Force -ErrorAction SilentlyContinue
+
+            Start-Sleep -Milliseconds 500
+
+            if (Get-Module -ListAvailable -Name $module) {
+                Write-Host "  [+] $module (manual)" -ForegroundColor Green
+            } else {
+                Write-Host "  [X] $module : Not detected after save" -ForegroundColor Red
+            }
         } else {
-            Write-Host "  [X] $module failed" -ForegroundColor Red
+            Write-Host "  [X] $module : Save failed" -ForegroundColor Red
         }
     }
     catch {
@@ -292,7 +368,7 @@ foreach ($module in $modules) {
 # ============================================================
 Write-Host "`n[5/6] Configuration Symlinks" -ForegroundColor Blue
 
-# --- Windows Terminal settings.json ---
+# --- Windows Terminal ---
 $wtPattern = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_*\LocalState"
 $wtResolved = Get-ChildItem -Path $wtPattern -ErrorAction SilentlyContinue | Select-Object -First 1
 
@@ -302,10 +378,16 @@ if ($wtResolved) {
     Write-Host "  [X] Windows Terminal not found" -ForegroundColor Red
 }
 
-# --- PowerShell Profile ---
+# --- PowerShell Profile (with ownership fix) ---
 $profileDir = Split-Path -Path $PROFILE
 if (!(Test-Path $profileDir)) {
     New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    Grant-FileOwnership -Path $profileDir | Out-Null
+}
+
+# Grant ownership to profile file if it exists
+if (Test-Path $PROFILE) {
+    Grant-FileOwnership -Path $PROFILE | Out-Null
 }
 
 Set-SymlinkSafe -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE -DisplayName "PS Profile"
