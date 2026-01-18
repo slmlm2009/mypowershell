@@ -1,166 +1,219 @@
 <#
 .SYNOPSIS
-    Setup for slmlm2009 Windows Terminal environment.
+    Hardened dotfiles/bootstrap script for Windows Terminal
+    Can be executed from an elevated SSH session with a filtered admin token.
+.DESCRIPTION
+    - Avoids recursive/self symlinks
+    - Uses CMD-level deletion to bypass PS provider/ACL weirdness
+    - Forces TLS 1.2 for PSGallery
+    - Discovers the *effective* CurrentUser PSModulePath
+    - Falls back to Save-Module when Install-Module is blocked
+    - Suppresses installer noise and reports final state cleanly
 #>
 
-# 0. Admin & Session Prep
-if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "ERROR: Administrator privileges required." -ForegroundColor Red
-    Break
+# ------------------------------------------------------------
+# 0. Session & Security Prep
+# ------------------------------------------------------------
+$IsAdmin = ([Security.Principal.WindowsPrincipal]
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $IsAdmin) {
+    Write-Host "[X] Administrator privileges required" -ForegroundColor Red
+    return
 }
 
-# Force TLS 1.2 for PSGallery
+# Force TLS 1.2 (PSGallery + WinHTTP in SSH sessions)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $RepoPath = $PSScriptRoot
-Write-Host "`n>>> Starting Deployment from: $RepoPath" -ForegroundColor Cyan
+Write-Host "\n>>> Deploying from $RepoPath" -ForegroundColor Cyan
 Write-Host "------------------------------------------------------------"
 
-$OmpConfigName = "slmlm2009.omp.yaml"
-$OmpTargetDir  = "$HOME\.omp"
+# ------------------------------------------------------------
+# Utility: Status Output
+# ------------------------------------------------------------
+function Write-OK($msg) { Write-Host "  [OK] $msg" -ForegroundColor DarkGray }
+function Write-Add($msg){ Write-Host "  [+] $msg" -ForegroundColor Green }
+function Write-Err($msg){ Write-Host "  [X] $msg" -ForegroundColor Red }
+function Write-Do ($msg){ Write-Host "  [..] $msg" -ForegroundColor Yellow }
 
-# Helper Function for Symlinks
+# ------------------------------------------------------------
+# Utility: Nuclear Delete (bypass PS provider locks)
+# ------------------------------------------------------------
+function Remove-Nuclear {
+    param([string]$Path)
+
+    if (-not (Test-Path $Path)) { return }
+
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $item = Get-Item -LiteralPath $full -Force
+
+    if ($item.PSIsContainer) {
+        cmd /c "rd /s /q \"$full\"" 2>$null
+    } else {
+        cmd /c "del /f /q \"$full\"" 2>$null
+    }
+}
+
+# ------------------------------------------------------------
+# Utility: Safe Symlink Creation
+# ------------------------------------------------------------
 function Set-Symlink {
-    param ([string]$SourceFile, [string]$TargetFile, [string]$DisplayName)
-    if (!(Test-Path $SourceFile)) { return }
+    param(
+        [string]$Source,
+        [string]$Target,
+        [string]$Name
+    )
 
-    $absSource = (Resolve-Path $SourceFile).Path
-    $absTarget = [System.IO.Path]::GetFullPath($TargetFile)
+    if (-not (Test-Path $Source)) { return }
 
+    $absSource = (Resolve-Path $Source).Path
+    $absTarget = [System.IO.Path]::GetFullPath($Target)
+
+    # Prevent recursive/self links
     if ($absSource -ieq $absTarget) {
-        Write-Host "  [OK] $DisplayName : Already in correct location" -ForegroundColor Gray
+        Write-OK "$Name already in correct location"
         return
     }
 
-    if (Test-Path $TargetFile) {
-        $item = Get-Item $TargetFile
-        if ($item.LinkType -eq "SymbolicLink" -and $item.Target -eq $absSource) {
-            Write-Host "  [OK] $DisplayName : Symlink already correct" -ForegroundColor Gray
-            return
-        }
-        
-        # Access Denied Fix: Use CMD to force delete
-        if ($item.Attributes -match "Directory") {
-            cmd /c "rd /s /q `"$absTarget`"" 2>$null
-        } else {
-            cmd /c "del /f /q `"$absTarget`"" 2>$null
-        }
+    if (Test-Path $absTarget) {
+        try {
+            $existing = Get-Item $absTarget -Force
+            if ($existing.LinkType -eq 'SymbolicLink' -and $existing.Target -eq $absSource) {
+                Write-OK "$Name symlink already correct"
+                return
+            }
+        } catch {}
+
+        Remove-Nuclear $absTarget
     }
 
-    New-Item -ItemType SymbolicLink -Path $TargetFile -Target $absSource -Force *>$null
-    if (Test-Path $TargetFile) {
-        Write-Host "  [+] $DisplayName : Symlink created" -ForegroundColor Green
-    } else {
-        Write-Host "  [X] $DisplayName : Symlink failed" -ForegroundColor Red
-    }
+    New-Item -ItemType SymbolicLink -Path $absTarget -Target $absSource -Force *>$null
+
+    if (Test-Path $absTarget) { Write-Add "$Name linked" }
+    else { Write-Err "$Name link failed" }
 }
 
-# ---------------------------------------------------------
+# ------------------------------------------------------------
 # 1. Environment: Scoop & Git
-# ---------------------------------------------------------
-Write-Host "`n[1/6] Environment: Scoop & Git" -ForegroundColor Blue
-if (!(Get-Command scoop -ErrorAction SilentlyContinue)) {
-    Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression *>$null
-}
-Write-Host "  [OK] Scoop ready" -ForegroundColor Gray
+# ------------------------------------------------------------
+Write-Host "\n[1/6] Environment" -ForegroundColor Blue
 
-if (!((scoop list | Out-String) -match "git")) {
-    Write-Host "  [..] Installing Scoop Git..."
+if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+    Invoke-RestMethod https://get.scoop.sh | Invoke-Expression *>$null
+}
+Write-OK "Scoop ready"
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Do "Installing Git"
     scoop install git *>$null
 }
-Write-Host "  [OK] Git ready" -ForegroundColor Gray
+Write-OK "Git ready"
 
-# ---------------------------------------------------------
-# 2. CLI Tools
-# ---------------------------------------------------------
-Write-Host "`n[2/6] CLI Tools (Scoop)" -ForegroundColor Blue
-if (!(scoop bucket list | Select-String "extras")) {
+# ------------------------------------------------------------
+# 2. CLI Tools (Scoop)
+# ------------------------------------------------------------
+Write-Host "\n[2/6] CLI Tools" -ForegroundColor Blue
+
+if (-not (scoop bucket list | Select-String extras)) {
     scoop bucket add extras *>$null
 }
 
-$tools = @("zoxide", "fzf", "bat", "ripgrep", "fd", "eza")
-foreach ($tool in $tools) {
-    if (!(Get-Command $tool -ErrorAction SilentlyContinue)) {
-        Write-Host "  [..] Installing $tool..."
-        scoop install $tool *>$null
-        Write-Host "  [+] $tool installed" -ForegroundColor Green
+$tools = "zoxide","fzf","bat","ripgrep","fd","eza"
+foreach ($t in $tools) {
+    if (-not (Get-Command $t -ErrorAction SilentlyContinue)) {
+        Write-Do "Installing $t"
+        scoop install $t *>$null
+        Write-Add "$t installed"
     } else {
-        Write-Host "  [OK] $tool is already installed" -ForegroundColor Gray
+        Write-OK "$t present"
     }
 }
 
-# ---------------------------------------------------------
+# ------------------------------------------------------------
 # 3. Prompt: Oh My Posh
-# ---------------------------------------------------------
-Write-Host "`n[3/6] Prompt: Oh My Posh" -ForegroundColor Blue
-if (!(Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
-    winget install JanDeDobbeleer.OhMyPosh --source winget --accept-package-agreements --accept-source-agreements *>$null
-    Write-Host "  [+] Oh My Posh installed" -ForegroundColor Green
+# ------------------------------------------------------------
+Write-Host "\n[3/6] Oh My Posh" -ForegroundColor Blue
+
+if (-not (Get-Command oh-my-posh -ErrorAction SilentlyContinue)) {
+    winget install JanDeDobbeleer.OhMyPosh --accept-package-agreements --accept-source-agreements *>$null
+    Write-Add "Oh My Posh installed"
 } else {
-    Write-Host "  [OK] Oh My Posh already installed" -ForegroundColor Gray
+    Write-OK "Oh My Posh present"
 }
 
-# ---------------------------------------------------------
-# 4. PowerShell Modules (Dynamic Path Fix)
-# ---------------------------------------------------------
-Write-Host "`n[4/6] PowerShell Modules (PSGallery)" -ForegroundColor Blue
+# ------------------------------------------------------------
+# 4. PowerShell Modules (Filtered Token Safe)
+# ------------------------------------------------------------
+Write-Host "\n[4/6] PowerShell Modules" -ForegroundColor Blue
 
-# Discovery: Find the user-specific module path from the system
-$userModPath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "*$HOME*" } | Select-Object -First 1)
-if (!$userModPath) { $userModPath = "$HOME\Documents\PowerShell\Modules" }
+# Determine *effective* CurrentUser module path
+$userModuleRoot = ($env:PSModulePath -split ';' |
+    Where-Object { $_ -match [regex]::Escape($HOME) } |
+    Select-Object -First 1)
 
-if (!(Test-Path $userModPath)) { 
-    New-Item -ItemType Directory -Path $userModPath -Force *>$null 
-    Start-Sleep -Seconds 1 # Give the OS time to register the folder
+if (-not $userModuleRoot) {
+    $userModuleRoot = "$HOME\Documents\PowerShell\Modules"
 }
 
-# Provider and Trust
-if (!(Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force *>$null
+if (-not (Test-Path $userModuleRoot)) {
+    New-Item -ItemType Directory -Path $userModuleRoot -Force *>$null
 }
-Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted *>$null
 
-$modules = @("PSFzf", "Terminal-Icons")
-foreach ($module in $modules) {
-    if (!(Get-Module -ListAvailable -Name $module)) {
-        Write-Host "  [..] Installing $module..." -ForegroundColor White
-        try {
-            # Try standard install first
-            Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber -Confirm:$false -ErrorAction Stop
-            Write-Host "  [+] $module installed" -ForegroundColor Green
-        } catch {
-            Write-Host "  [..] Manual Save Attempt for $module..." -ForegroundColor Yellow
-            # Manual Save using the discovered path
-            Save-Module -Name $module -Path $userModPath -Force -ErrorAction SilentlyContinue
-            
-            if (Get-Module -ListAvailable -Name $module) {
-                Write-Host "  [+] $module saved successfully" -ForegroundColor Green
-            } else {
-                Write-Host "  [X] Failed to install $module" -ForegroundColor Red
-            }
+# PSGallery prep
+if (-not (Get-PackageProvider NuGet -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider NuGet -Force *>$null
+}
+Set-PSRepository PSGallery -InstallationPolicy Trusted *>$null
+
+$modules = "PSFzf","Terminal-Icons"
+foreach ($m in $modules) {
+    if (Get-Module -ListAvailable $m) {
+        Write-OK "$m present"
+        continue
+    }
+
+    Write-Do "Installing $m"
+    try {
+        Install-Module $m -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+        Write-Add "$m installed"
+    } catch {
+        Write-Do "Save-Module fallback for $m"
+        Save-Module $m -Path $userModuleRoot -Force -ErrorAction SilentlyContinue
+
+        if (Get-Module -ListAvailable $m) {
+            Write-Add "$m saved"
+        } else {
+            Write-Err "$m failed"
         }
-    } else {
-        Write-Host "  [OK] $module is already installed" -ForegroundColor Gray
     }
 }
 
-# ---------------------------------------------------------
+# ------------------------------------------------------------
 # 5. Configuration Symlinks
-# ---------------------------------------------------------
-Write-Host "`n[5/6] Configuration Symlinks" -ForegroundColor Blue
+# ------------------------------------------------------------
+Write-Host "\n[5/6] Symlinks" -ForegroundColor Blue
 
-$wtPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_*\LocalState"
-$wtResolvedPath = Get-ChildItem -Path $wtPath -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($wtResolvedPath) {
-    Set-Symlink -SourceFile "$RepoPath\settings.json" -TargetFile "$($wtResolvedPath.FullName)\settings.json" -DisplayName "Terminal Settings"
+# Windows Terminal
+$wt = Get-ChildItem "$env:LOCALAPPDATA\Packages" -Filter "Microsoft.WindowsTerminal_*" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($wt) {
+    Set-Symlink "$RepoPath\settings.json" "$($wt.FullName)\LocalState\settings.json" "Windows Terminal"
 }
 
-$profileDir = Split-Path -Path $PROFILE
-if (!(Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force *>$null }
-Set-Symlink -SourceFile "$RepoPath\Microsoft.PowerShell_profile.ps1" -TargetFile $PROFILE -DisplayName "PS Profile"
+# PowerShell Profile
+$profileDir = Split-Path $PROFILE
+if (-not (Test-Path $profileDir)) {
+    New-Item -ItemType Directory -Path $profileDir -Force *>$null
+}
+Set-Symlink "$RepoPath\Microsoft.PowerShell_profile.ps1" $PROFILE "PowerShell Profile"
 
-if (!(Test-Path $OmpTargetDir)) { New-Item -ItemType Directory -Path $OmpTargetDir -Force *>$null }
-Set-Symlink -SourceFile "$RepoPath\$OmpConfigName" -TargetFile "$OmpTargetDir\$OmpConfigName" -DisplayName "OMP Config"
+# Oh My Posh config
+$ompDir = "$HOME\.omp"
+if (-not (Test-Path $ompDir)) {
+    New-Item -ItemType Directory -Path $ompDir -Force *>$null
+}
+Set-Symlink "$RepoPath\slmlm2009.omp.yaml" "$ompDir\slmlm2009.omp.yaml" "OMP Config"
 
-Write-Host "`n------------------------------------------------------------"
-Write-Host "[6/6] Setup Complete!" -ForegroundColor Cyan
+Write-Host "\n------------------------------------------------------------"
+Write-Host "[6/6] Setup Complete" -ForegroundColor Cyan
