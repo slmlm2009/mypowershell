@@ -187,8 +187,8 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
 }
 
 # Import modules
-Import-Module PSFzf
 Import-Module Terminal-Icons
+Import-Module PSFzf
 
 # Initialize PSFzf (Fuzzy Finder Integration)
 if (Get-Module -ListAvailable PSFzf) {
@@ -300,3 +300,4 @@ if (Get-Command bat -ErrorAction SilentlyContinue) {
 # =============================================================================
 
 $env:EDITOR = "edit" # Or 'notepad' if you use GUI
+
