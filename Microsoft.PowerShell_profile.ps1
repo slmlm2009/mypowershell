@@ -38,7 +38,16 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
     }
 }
 
-# 3. Import PSFzf
+# 3. Integrate zoxide tracking with Oh My Posh prompt
+if ((Get-Command oh-my-posh -ErrorAction SilentlyContinue) -and (Get-Command __zoxide_hook -ErrorAction SilentlyContinue)) {
+    $__omp_prompt = $function:prompt
+    function global:prompt {
+        __zoxide_hook | Out-Null
+        & $__omp_prompt
+    }
+}
+
+# 4. Import PSFzf
 if (Get-Module -ListAvailable PSFzf) { 
     Import-Module PSFzf 
     Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
@@ -198,5 +207,6 @@ if (Get-Command rg -ErrorAction SilentlyContinue) {
 Function cp { Copy-Item -Confirm @args }
 Function mv { Move-Item -Confirm @args }
 Function rm { Remove-Item -Confirm @args }
+
 
 
