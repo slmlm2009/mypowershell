@@ -16,10 +16,6 @@
             "id": "User.paste"
         },
         {
-            "command": "find",
-            "id": "User.find"
-        },
-        {
             "command": 
             {
                 "action": "splitPane",
@@ -27,8 +23,21 @@
                 "splitMode": "duplicate"
             },
             "id": "User.splitPane.A6751878"
+        },
+        {
+            "command": "find",
+            "id": "User.find"
+        },
+        {
+            "command": 
+            {
+                "action": "sendInput",
+                "input": "\u001b[13;2u"
+            },
+            "id": "User.sendInput.8882FD6D"
         }
     ],
+    "alwaysOnTop": false,
     "centerOnLaunch": true,
     "compatibility.allowHeadless": true,
     "copyFormatting": "none",
@@ -39,16 +48,20 @@
     "keybindings": 
     [
         {
+            "id": "User.sendInput.8882FD6D",
+            "keys": "shift+enter"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+minus"
+        },
+        {
             "id": "User.splitPane.A6751878",
             "keys": "ctrl+shift+d"
         },
         {
             "id": "User.copy.644BA8F2",
             "keys": "ctrl+c"
-        },
-        {
-            "id": null,
-            "keys": "alt+shift+minus"
         },
         {
             "id": "User.find",
@@ -95,24 +108,24 @@
             "keys": "alt+right"
         },
         {
-            "id": "Terminal.MoveFocusUp",
-            "keys": "ctrl+up"
-        },
-        {
             "id": null,
             "keys": "alt+shift+left"
+        },
+        {
+            "id": "Terminal.MoveFocusUp",
+            "keys": "ctrl+up"
         },
         {
             "id": null,
             "keys": "alt+up"
         },
         {
-            "id": "Terminal.ClosePane",
-            "keys": "ctrl+shift+backspace"
-        },
-        {
             "id": "Terminal.ResizePaneRight",
             "keys": "ctrl+shift+right"
+        },
+        {
+            "id": "Terminal.ClosePane",
+            "keys": "ctrl+shift+backspace"
         },
         {
             "id": null,
@@ -156,7 +169,8 @@
             "font": 
             {
                 "face": "MesloLGM Nerd Font"
-            }
+            },
+            "opacity": 100
         },
         "list": 
         [
@@ -165,7 +179,8 @@
                 "elevate": true,
                 "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
                 "hidden": false,
-                "name": "Command Prompt"
+                "name": "Command Prompt",
+                "opacity": 100
             },
             {
                 "colorScheme": "Campbell",
@@ -173,6 +188,7 @@
                 "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
                 "hidden": false,
                 "name": "PowerShell",
+                "opacity": 100,
                 "source": "Windows.Terminal.PowershellCore"
             },
             {
@@ -181,29 +197,31 @@
                 "elevate": true,
                 "font": 
                 {
-                    "face": "Cascadia Mono",
+                    "face": "MesloLGS Nerd Font",
                     "size": 12
                 },
                 "guid": "{4ff56d04-d9cf-57ea-bae2-ad396374e7e3}",
                 "hidden": false,
                 "name": "Ubuntu 22.04.5 LTS",
+                "opacity": 100,
                 "source": "CanonicalGroupLimited.Ubuntu22.04LTS_79rhkp1fndgsc"
             },
             {
                 "bellStyle": "taskbar",
-                "colorScheme": "Campbell",
-                "commandline": "ssh root@84.8.97.194",
+                "colorScheme": "Catppuccin Mocha",
+                "commandline": "ssh -p 7279 -i \"C:\\Users\\slmlm2009\\.ssh\\ssh-key-2024-09-09.key\" ubuntu@slmlm2009-server",
                 "cursorShape": "filledBox",
                 "elevate": true,
                 "font": 
                 {
-                    "face": "Cascadia Mono",
+                    "face": "MesloLGS Nerd Font",
                     "size": 12
                 },
                 "guid": "{5730e9ea-ffc7-4419-b8df-ca4829da3e28}",
                 "hidden": false,
                 "icon": "D:\\Images\\Cloud_No_BG2.png",
                 "name": "slmlm2009-server",
+                "opacity": 100,
                 "tabTitle": "slmlm2009-server"
             },
             {
@@ -218,12 +236,13 @@
                 "guid": "{d6d59871-deea-4350-af9a-3a443f8025a3}",
                 "hidden": false,
                 "icon": "D:\\Images\\orange-pi-seeklogo_cut.png",
-                "name": "Orange Pi"
+                "name": "Orange Pi",
+                "opacity": 100
             },
             {
                 "bellStyle": "taskbar",
                 "colorScheme": "Campbell",
-                "commandline": "ssh root@192.168.100.7",
+                "commandline": "ssh root@salem-sffpc-nanokvm",
                 "cursorShape": "filledBox",
                 "elevate": true,
                 "font": 
@@ -235,12 +254,13 @@
                 "hidden": false,
                 "icon": "D:\\Images\\nanokvm_logo.jpg",
                 "name": "salem-sffpc-nanokvm",
+                "opacity": 100,
                 "tabTitle": "nanokvm"
             },
             {
                 "bellStyle": "taskbar",
                 "colorScheme": "Campbell",
-                "commandline": "ssh root@100.67.147.113",
+                "commandline": "ssh root@salem-pc-nanokvm",
                 "cursorShape": "filledBox",
                 "elevate": true,
                 "font": 
@@ -252,7 +272,32 @@
                 "hidden": false,
                 "icon": "D:\\Images\\nanokvm_logo.jpg",
                 "name": "salem-pc-nanokvm",
+                "opacity": 100,
                 "tabTitle": "nanokvm"
+            },
+            {
+                "colorScheme": "Campbell",
+                "commandline": "ssh slmlm2009@salem-pc",
+                "elevate": true,
+                "guid": "{d069d7b7-8bb4-4e5a-9531-b786dbb5e3aa}",
+                "hidden": false,
+                "icon": "D:\\Images\\windows-11.png",
+                "name": "SALEM-PC",
+                "opacity": 100,
+                "startingDirectory": "%USERPROFILE%"
+            },
+            {
+                "bellStyle": "none",
+                "colorScheme": "Campbell",
+                "commandline": "ssh slmlm2009@vm-salem-sffpc",
+                "compatibility.input.forceVT": false,
+                "elevate": true,
+                "guid": "{832932e0-9a41-4c3b-9ad0-de7c8906e183}",
+                "hidden": false,
+                "icon": "D:\\Images\\windows-11.png",
+                "name": "VM-SALEM-SFFPC",
+                "opacity": 100,
+                "startingDirectory": "%USERPROFILE%"
             }
         ]
     },
