@@ -248,13 +248,35 @@ function Set-Symlink {
         
         # Check if already a correct symlink
         if ($item.LinkType -eq "SymbolicLink") {
+            # Use LinkTarget property (PS 6+) or fallback to Target
             $existingTarget = $null
-            try {
-                $existingTarget = [System.IO.Path]::GetFullPath(
-                    [System.IO.Path]::Combine((Split-Path $TargetFile), $item.Target)
-                )
-            } catch {
+            
+            if ($item.PSObject.Properties.Name -contains 'LinkTarget') {
+                # PowerShell 6+ - more reliable
+                $existingTarget = $item.LinkTarget
+            } else {
+                # PowerShell 5.1 fallback
                 $existingTarget = $item.Target
+            }
+            
+            # Handle array (some symlinks return array)
+            if ($existingTarget -is [Array]) {
+                $existingTarget = $existingTarget[0]
+            }
+            
+            # Resolve to absolute path
+            if (![System.IO.Path]::IsPathRooted($existingTarget)) {
+                # Relative path - combine with parent directory
+                try {
+                    $existingTarget = [System.IO.Path]::GetFullPath(
+                        [System.IO.Path]::Combine((Split-Path $TargetFile), $existingTarget)
+                    )
+                } catch {
+                    $existingTarget = $item.Target
+                }
+            } else {
+                # Already absolute - just normalize it
+                $existingTarget = [System.IO.Path]::GetFullPath($existingTarget)
             }
             
             if ($existingTarget -ieq $absSource) {
