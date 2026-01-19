@@ -255,7 +255,7 @@
                 "icon": "D:\\Images\\nanokvm_logo.jpg",
                 "name": "salem-sffpc-nanokvm",
                 "opacity": 100,
-                "tabTitle": "nanokvm"
+                "tabTitle": "salem-sffpc-nanokvm"
             },
             {
                 "bellStyle": "taskbar",
@@ -273,7 +273,7 @@
                 "icon": "D:\\Images\\nanokvm_logo.jpg",
                 "name": "salem-pc-nanokvm",
                 "opacity": 100,
-                "tabTitle": "nanokvm"
+                "tabTitle": "salem-sffpc-nanokvm"
             },
             {
                 "colorScheme": "Campbell",
