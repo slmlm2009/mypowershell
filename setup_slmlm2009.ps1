@@ -542,7 +542,7 @@ if ($Interactive) {
         @{ Key = "Scoop";    Name = "Package Manager (Scoop + Git)"; Description = "Required for CLI tools"; Default = $true }
         @{ Key = "Tools";    Name = "CLI Tools";                     Description = "zoxide, fzf, bat, ripgrep, fd, eza"; Default = !$SkipTools }
         @{ Key = "OMP";      Name = "Oh My Posh";                    Description = "Beautiful prompt engine"; Default = $true }
-        @{ Key = "Symlinks"; Name = "Configuration Symlinks";        Description = "Link configs to your repo (includes backup)"; Default = !$SkipSymlinks }
+        @{ Key = "Symlinks"; Name = "Configuration Symlinks";        Description = "Link configs to your repo (backup of existing configs will be created)"; Default = !$SkipSymlinks }
     )
     
     $selected = Show-InteractiveMenu -Title "Select components to install/configure:" -Options $mainOptions -MultiSelect
