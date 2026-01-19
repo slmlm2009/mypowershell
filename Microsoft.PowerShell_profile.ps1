@@ -8,37 +8,33 @@ $env:EDITOR = "edit"
 # --- PATHS & CACHE ---
 $cacheDir = "$env:USERPROFILE\.cache\powershell"
 
-# 1. Load Zoxide (Auto-cache with fallback)
-$zoxideCachePath = "$cacheDir\zoxide.ps1"
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    # Auto-generate cache if missing
-    if (!(Test-Path $zoxideCachePath)) {
-        if (!(Test-Path $cacheDir)) { New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null }
-        zoxide init powershell --cmd cd | Out-File -FilePath $zoxideCachePath -Encoding utf8
-    }
-    
-    # Load from cache with fallback
-    try {
-        . "$zoxideCachePath"
-    } catch {
-        Invoke-Expression (& {zoxide init powershell --cmd cd | Out-String})
-    }
-}
-
-# 2. Load Oh My Posh (Auto-cache with fallback)
+# 1. Load Oh My Posh FIRST (Auto-cache with fallback)
 $ompCachePath = "$cacheDir\omp.ps1"
 if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
-    # Auto-generate cache if missing
     if (!(Test-Path $ompCachePath)) {
         if (!(Test-Path $cacheDir)) { New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null }
         oh-my-posh init pwsh --config "$env:USERPROFILE\.omp\slmlm2009.omp.yaml" --print | Out-File -FilePath $ompCachePath -Encoding utf8
     }
     
-    # Load from cache with fallback
     try {
         . "$ompCachePath"
     } catch {
         oh-my-posh init pwsh --config "$env:USERPROFILE\.omp\slmlm2009.omp.yaml" | Invoke-Expression
+    }
+}
+
+# 2. Load Zoxide SECOND (Auto-cache with fallback)
+$zoxideCachePath = "$cacheDir\zoxide.ps1"
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    if (!(Test-Path $zoxideCachePath)) {
+        if (!(Test-Path $cacheDir)) { New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null }
+        zoxide init powershell --cmd cd | Out-File -FilePath $zoxideCachePath -Encoding utf8
+    }
+    
+    try {
+        . "$zoxideCachePath"
+    } catch {
+        Invoke-Expression (& {zoxide init powershell --cmd cd | Out-String})
     }
 }
 
@@ -47,6 +43,7 @@ if (Get-Module -ListAvailable PSFzf) {
     Import-Module PSFzf 
     Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
 }
+
 
 # =============================================================================
 # FUNCTIONS
@@ -201,4 +198,5 @@ if (Get-Command rg -ErrorAction SilentlyContinue) {
 Function cp { Copy-Item -Confirm @args }
 Function mv { Move-Item -Confirm @args }
 Function rm { Remove-Item -Confirm @args }
+
 
