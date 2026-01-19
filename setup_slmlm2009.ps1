@@ -248,13 +248,32 @@ function Set-Symlink {
         
         # Check if already a correct symlink
         if ($item.LinkType -eq "SymbolicLink") {
-            $existingTarget = $null
+            # Get symlink target (use LinkTarget for PS 6+, fallback to Target)
+            $existingTarget = if ($item.PSObject.Properties.Name -contains 'LinkTarget') {
+                $item.LinkTarget
+            } else {
+                $item.Target
+            }
+            
+            # Handle array return
+            if ($existingTarget -is [Array]) {
+                $existingTarget = $existingTarget[0]
+            }
+            
+            # Resolve to absolute path
             try {
-                $existingTarget = [System.IO.Path]::GetFullPath(
-                    [System.IO.Path]::Combine((Split-Path $TargetFile), $item.Target)
-                )
+                if ([System.IO.Path]::IsPathRooted($existingTarget)) {
+                    # Already absolute - just normalize
+                    $existingTarget = [System.IO.Path]::GetFullPath($existingTarget)
+                } else {
+                    # Relative path - combine with parent directory
+                    $existingTarget = [System.IO.Path]::GetFullPath(
+                        [System.IO.Path]::Combine((Split-Path $TargetFile), $existingTarget)
+                    )
+                }
             } catch {
-                $existingTarget = $item.Target
+                # Fallback if path resolution fails
+                $existingTarget = $existingTarget
             }
             
             if ($existingTarget -ieq $absSource) {
@@ -274,6 +293,25 @@ function Set-Symlink {
             $script:Stats.Backed++
         }
     }
+    
+    # Ensure parent directory exists
+    $parentDir = Split-Path $TargetFile -Parent
+    if (!(Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
+    
+    # Create symlink
+    try {
+        New-Item -ItemType SymbolicLink -Path $TargetFile -Target $absSource -Force -ErrorAction Stop | Out-Null
+        Write-Status -Type New -Item $DisplayName -Message "Symlink created"
+        $script:Stats.Created++
+        return $true
+    } catch {
+        Write-Status -Type Error -Item $DisplayName -Message "Failed: $($_.Exception.Message)"
+        $script:Stats.Failed++
+        return $false
+    }
+}
     
     # Ensure parent directory exists
     $parentDir = Split-Path $TargetFile -Parent
