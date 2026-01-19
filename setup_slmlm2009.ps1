@@ -330,7 +330,6 @@ function Set-Symlink {
         $script:Stats.Failed++
         return $false
     }
-}
 
 function Install-ScoopPackage {
     param(
