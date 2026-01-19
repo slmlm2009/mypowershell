@@ -15,7 +15,7 @@
     Skips installation of CLI tools (zoxide, fzf, bat, etc.)
 
 .PARAMETER SkipSymlinks
-    Skips creation of configuration symlinks.
+    Skips creation of configuration symlinks and backups of existing files.
 
 .PARAMETER DryRun
     Shows what would be done without making any changes.
@@ -407,7 +407,7 @@ function Install-ScoopGit {
     
     # Check if Scoop's git is installed
     $scoopList = scoop list 2>$null
-    $hasGit = $scoopList | Where-Object { $_ -match "^\s*git\s+\d" }
+    $hasGit = $scoopList | Where-Object { $_ -match "^\s*git\s+" }
     
     if ($hasGit) {
         Write-Status -Type OK -Item "Git (Scoop)" -Message "Already installed"
@@ -542,7 +542,7 @@ if ($Interactive) {
         @{ Key = "Scoop";    Name = "Package Manager (Scoop + Git)"; Description = "Required for CLI tools"; Default = $true }
         @{ Key = "Tools";    Name = "CLI Tools";                     Description = "zoxide, fzf, bat, ripgrep, fd, eza"; Default = !$SkipTools }
         @{ Key = "OMP";      Name = "Oh My Posh";                    Description = "Beautiful prompt engine"; Default = $true }
-        @{ Key = "Symlinks"; Name = "Configuration Symlinks";        Description = "Link configs to your repo"; Default = !$SkipSymlinks }
+        @{ Key = "Symlinks"; Name = "Configuration Symlinks";        Description = "Link configs to your repo (includes backup)"; Default = !$SkipSymlinks }
     )
     
     $selected = Show-InteractiveMenu -Title "Select components to install/configure:" -Options $mainOptions -MultiSelect
@@ -569,7 +569,7 @@ if ($Interactive) {
             @{ Key = "WindowsTerminal";   Name = "Windows Terminal";   Description = "Appearance, fonts, and keybindings"; Default = $true }
             @{ Key = "OhMyPosh";          Name = "Oh My Posh Theme";   Description = "Prompt theme configuration"; Default = $true }
         )
-        $selectedSymlinks = Show-InteractiveMenu -Title "Select configuration files to symlink:" -Options $symlinkOptions -MultiSelect
+        $selectedSymlinks = Show-InteractiveMenu -Title "Select configuration files to symlink (existing files will be backed up):" -Options $symlinkOptions -MultiSelect
     }
     
     # Confirmation
@@ -632,7 +632,7 @@ if ($installOmp) {
 # ---------------------------------------------------------
 if ($createSymlinks) {
     $currentStep++
-    Write-Step -Number $currentStep -Total $totalSteps -Title "Configuration Symlinks"
+    Write-Step -Number $currentStep -Total $totalSteps -Title "Configuration Symlinks & Backups"
     
     # PowerShell Profile
     if ("PowerShellProfile" -in $selectedSymlinks) {
