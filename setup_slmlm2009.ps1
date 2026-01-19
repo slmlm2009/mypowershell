@@ -236,12 +236,6 @@ function Set-Symlink {
         return $true
     }
     
-    # Dry run mode
-    if ($DryRun) {
-        Write-Status -Type DryRun -Item $DisplayName -Message "Would create symlink -> $absSource"
-        return $true
-    }
-    
     # Handle existing target
     if (Test-Path $TargetFile) {
         $item = Get-Item $TargetFile -Force
@@ -285,16 +279,30 @@ function Set-Symlink {
                 return $true
             }
             
-            # Wrong symlink - remove it
-            Remove-Item $TargetFile -Force
+            # Wrong symlink - remove it (but not in dry run)
+            if (!$DryRun) {
+                Remove-Item $TargetFile -Force
+            } else {
+                Write-Status -Type DryRun -Item $DisplayName -Message "Would remove incorrect symlink"
+            }
         } else {
-            # Regular file - backup
-            $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-            $backup = "$TargetFile.bak_$timestamp"
-            Rename-Item -Path $TargetFile -NewName $backup
-            Write-Status -Type Warn -Item $DisplayName -Message "Backed up existing file"
-            $script:Stats.Backed++
+            # Regular file - backup (but not in dry run)
+            if (!$DryRun) {
+                $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+                $backup = "$TargetFile.bak_$timestamp"
+                Rename-Item -Path $TargetFile -NewName $backup
+                Write-Status -Type Warn -Item $DisplayName -Message "Backed up existing file"
+                $script:Stats.Backed++
+            } else {
+                Write-Status -Type DryRun -Item $DisplayName -Message "Would backup existing file"
+            }
         }
+    }
+    
+    # Dry run mode - show what would be created
+    if ($DryRun) {
+        Write-Status -Type DryRun -Item $DisplayName -Message "Would create symlink -> $absSource"
+        return $true
     }
     
     # Ensure parent directory exists
