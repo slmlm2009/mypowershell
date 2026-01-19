@@ -405,9 +405,9 @@ function Install-Scoop {
 function Install-ScoopGit {
     Write-Host "  Checking Git..."
     
-    # Check if Scoop's git is installed
-    $scoopList = scoop list 2>$null
-    $hasGit = $scoopList | Where-Object { $_ -match "^\s*git\s+" }
+    # Check if Scoop's git is installed (parse table output)
+    $scoopList = scoop list 2>$null | Out-String
+    $hasGit = $scoopList -match '(?m)^git\s+'
     
     if ($hasGit) {
         Write-Status -Type OK -Item "Git (Scoop)" -Message "Already installed"
