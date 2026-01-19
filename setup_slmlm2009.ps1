@@ -406,7 +406,7 @@ function Install-ScoopGit {
     Write-Host "  Checking Git..."
     
     # Check if Scoop's git is installed (parse table output)
-    $scoopList = scoop list 2>$null | Out-String
+    $scoopList = scoop list 2>&1 | Out-String
     $hasGit = $scoopList -match '(?m)^git\s+'
     
     if ($hasGit) {
